@@ -73,3 +73,19 @@ export const JD_PIPELINE_STAGES = [
 export const NOTIFICATION_CHANNELS = ['push', 'email', 'in_app'];
 
 export const DOCUMENT_VISIBILITY = ['private', 'user_visible'];
+
+// Allowed case status transitions (spec 9.2)
+export const CASE_STATUS_TRANSITIONS = {
+  submitted: ['under_review', 'cancelled'],
+  under_review: ['awaiting_user', 'assigned', 'cancelled'],
+  awaiting_user: ['under_review', 'assigned'],
+  assigned: ['in_progress', 'cancelled'],
+  in_progress: ['field_visit_scheduled', 'report_under_review', 'awaiting_user', 'payment_pending', 'completed', 'cancelled'],
+  field_visit_scheduled: ['report_under_review', 'in_progress', 'cancelled'],
+  report_under_review: ['report_ready', 'in_progress'],
+  report_ready: ['payment_pending', 'completed'],
+  payment_pending: ['completed', 'in_progress'],
+  completed: [],
+  cancelled: [],
+  closed: [],
+};

@@ -31,6 +31,19 @@ export const env = {
 
   adminOrigin: process.env.ADMIN_ORIGIN || 'http://localhost:5173',
 
+  cloudinary: {
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME || '',
+    apiKey: process.env.CLOUDINARY_API_KEY || '',
+    apiSecret: process.env.CLOUDINARY_API_SECRET || '',
+  },
+
+  firebase: {
+    clientApiKey: process.env.FIREBASE_CLIENT_API_KEY || '',
+    projectId: process.env.FIREBASE_PROJECT_ID || 'housker-2a0d6',
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL || '',
+    privateKey: process.env.FIREBASE_PRIVATE_KEY || '',
+  },
+
   seed: {
     name: process.env.SEED_ADMIN_NAME || 'Super Admin',
     email: process.env.SEED_ADMIN_EMAIL || 'admin@houseker.com',
