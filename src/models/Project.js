@@ -24,6 +24,14 @@ const projectSchema = new mongoose.Schema(
     amenities: [String],
     description: { type: String },
     featured: { type: Boolean, default: false },
+
+    // UI content fields (project detail + express interest screen)
+    highlights: [String],          // checklist items (Gated Community, Parks, etc.)
+    availableOptions: [String],    // plot sizes: ["5 Marla", "7 Marla", "10 Marla", "1 Kanal"]
+    possessionYear: { type: String }, // e.g. "2024"
+    plotDetails: { type: String }, // short label e.g. "5 Marla-1 Kanal"
+    brochure: { type: mongoose.Schema.Types.ObjectId, ref: 'Document' },
+
     internalNotes: { type: String }, // not visible to user
     active: { type: Boolean, default: true },
   },

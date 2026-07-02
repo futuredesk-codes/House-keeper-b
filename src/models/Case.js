@@ -24,6 +24,15 @@ const caseSchema = new mongoose.Schema(
     serviceType: { type: String }, // denormalised service name/category
     propertyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Property' },
 
+    // User-submitted form answers and property location for display
+    submittedData: { type: mongoose.Schema.Types.Mixed, default: {} },
+    location: {
+      district: String,
+      tehsil: String,
+      village: String,
+      label: String, // free-text address displayed on case cards
+    },
+
     status: { type: String, enum: CASE_STATUSES, default: 'submitted', index: true },
     priority: { type: String, enum: PRIORITIES, default: 'normal' },
 

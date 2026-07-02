@@ -4,7 +4,7 @@ import { cloudinary } from '../config/cloudinary.js';
 import User from '../models/User.js';
 import ApiError from '../utils/ApiError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
-import { signAccessToken, signRefreshToken } from '../utils/jwt.js';
+import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../utils/jwt.js';
 import { env } from '../config/env.js';
 
 // ─── multer — memory storage, image files only, 5 MB cap ────────────────────
@@ -242,6 +242,31 @@ export const register = asyncHandler(async (req, res) => {
     ...tokens,
     user: publicUser(user),
   });
+});
+
+// POST /api/user-auth/refresh
+// body: { refreshToken }
+// Issues a new token pair without requiring the user to re-authenticate via OTP.
+export const refreshUserTokens = asyncHandler(async (req, res) => {
+  const { refreshToken } = req.body;
+  if (!refreshToken) throw ApiError.badRequest('refreshToken is required');
+
+  let payload;
+  try {
+    payload = verifyRefreshToken(refreshToken);
+  } catch {
+    throw ApiError.unauthorized('Refresh token is invalid or expired. Please log in again.');
+  }
+
+  if (payload.type !== 'user') throw ApiError.unauthorized('Invalid token type');
+
+  const user = await User.findById(payload.sub);
+  if (!user || user.status === 'blocked') {
+    throw ApiError.unauthorized('Account not found or blocked. Please log in again.');
+  }
+
+  const tokens = issueUserTokens(user);
+  res.json(tokens);
 });
 
 // PATCH /api/user-auth/profile-image

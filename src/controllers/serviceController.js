@@ -10,6 +10,14 @@ function publicService(s) {
     category: s.category,
     userType: s.userType,
     description: s.description,
+    heroImage: s.heroImage,
+    icon: s.icon,
+    bgColor: s.bgColor,
+    ctaLabel: s.ctaLabel,
+    features: s.features,
+    whatWeHelp: s.whatWeHelp,
+    steps: s.steps,
+    faqs: s.faqs,
     formSchema: s.formSchema,
     milestoneTemplate: s.milestoneTemplate,
     documentRequirements: s.documentRequirements,
@@ -21,13 +29,17 @@ function publicService(s) {
 }
 
 // GET /api/services
+// Supports ?category=NRK|KP|Other for the app's tab filter.
+// Without admin manage permission, only active services are returned.
 export const listServices = asyncHandler(async (req, res) => {
   const { hasPermission } = await import('../constants/roles.js');
   const canViewAll = hasPermission(req.actor?.permissions ?? [], 'settings:manage');
 
   const filter = {};
-  // Without manage permission, only active services are visible
   if (!canViewAll || req.query.all !== 'true') filter.active = true;
+  if (req.query.category && req.query.category !== 'all') {
+    filter.category = new RegExp(`^${req.query.category.trim()}$`, 'i');
+  }
 
   const { page, limit, skip } = parsePagination(req.query);
   const [items, total] = await Promise.all([
@@ -47,7 +59,12 @@ export const getService = asyncHandler(async (req, res) => {
 
 // POST /api/services
 export const createService = asyncHandler(async (req, res) => {
-  const { name, category, userType, description, formSchema, milestoneTemplate, documentRequirements, slaDays } = req.body;
+  const {
+    name, category, userType, description,
+    heroImage, icon, bgColor, ctaLabel,
+    features, whatWeHelp, steps, faqs,
+    formSchema, milestoneTemplate, documentRequirements, slaDays,
+  } = req.body;
   if (!name || !name.trim()) throw ApiError.badRequest('Service name is required');
 
   const service = await Service.create({
@@ -55,6 +72,14 @@ export const createService = asyncHandler(async (req, res) => {
     category,
     userType,
     description,
+    heroImage,
+    icon,
+    bgColor,
+    ctaLabel,
+    features: features || [],
+    whatWeHelp: whatWeHelp || [],
+    steps: steps || [],
+    faqs: faqs || [],
     formSchema: formSchema || [],
     milestoneTemplate: milestoneTemplate || [],
     documentRequirements: documentRequirements || [],
@@ -69,12 +94,25 @@ export const updateService = asyncHandler(async (req, res) => {
   const service = await Service.findById(req.params.id);
   if (!service) throw ApiError.notFound('Service not found');
 
-  const { name, category, userType, description, formSchema, milestoneTemplate, documentRequirements, slaDays, active } = req.body;
+  const {
+    name, category, userType, description,
+    heroImage, icon, bgColor, ctaLabel,
+    features, whatWeHelp, steps, faqs,
+    formSchema, milestoneTemplate, documentRequirements, slaDays, active,
+  } = req.body;
 
   if (name !== undefined) service.name = name.trim();
   if (category !== undefined) service.category = category;
   if (userType !== undefined) service.userType = userType;
   if (description !== undefined) service.description = description;
+  if (heroImage !== undefined) service.heroImage = heroImage;
+  if (icon !== undefined) service.icon = icon;
+  if (bgColor !== undefined) service.bgColor = bgColor;
+  if (ctaLabel !== undefined) service.ctaLabel = ctaLabel;
+  if (features !== undefined) service.features = features;
+  if (whatWeHelp !== undefined) service.whatWeHelp = whatWeHelp;
+  if (steps !== undefined) service.steps = steps;
+  if (faqs !== undefined) service.faqs = faqs;
   if (formSchema !== undefined) service.formSchema = formSchema;
   if (milestoneTemplate !== undefined) service.milestoneTemplate = milestoneTemplate;
   if (documentRequirements !== undefined) service.documentRequirements = documentRequirements;

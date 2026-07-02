@@ -15,6 +15,11 @@ import paymentRoutes from './paymentRoutes.js';
 import messageRoutes from './messageRoutes.js';
 import notificationRoutes from './notificationRoutes.js';
 import projectRoutes from './projectRoutes.js';
+import userCaseRoutes from './userCaseRoutes.js';
+import userNotificationRoutes from './userNotificationRoutes.js';
+import userProfileRoutes from './userProfileRoutes.js';
+import userProjectRoutes from './userProjectRoutes.js';
+import userServiceRequestRoutes from './userServiceRequestRoutes.js';
 import { authenticate } from '../middleware/auth.js';
 
 const router = Router();
@@ -37,6 +42,11 @@ router.use('/payments', paymentRoutes);
 router.use('/messages', messageRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/projects', projectRoutes);
+router.use('/user/cases', userCaseRoutes);
+router.use('/user/notifications', userNotificationRoutes);
+router.use('/user/profile', userProfileRoutes);
+router.use('/user/projects', userProjectRoutes);
+router.use('/user/service-requests', userServiceRequestRoutes);
 
 router.get('/session', authenticate, (req, res) => res.json({ actor: req.actor }));
 

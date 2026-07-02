@@ -308,3 +308,91 @@ export const addCaseNote = asyncHandler(async (req, res) => {
 
   res.json(publicCase(cas));
 });
+
+// Trimmed view for the app user — omits internalNotes (internal-only).
+// Includes submittedData, location, and assignedTeam (populated name/role) for
+// the case detail and list screens in the Flutter app.
+function publicCaseForUser(c) {
+  return {
+    id: c._id,
+    caseId: c.caseId,
+    serviceId: c.serviceId,
+    serviceType: c.serviceType,
+    status: c.status,
+    priority: c.priority,
+    milestones: c.milestones,
+    submittedData: c.submittedData,
+    location: c.location,
+    assignedTeam: c.assignedTeam,
+    documents: c.documents,
+    reports: c.reports,
+    paymentStatus: c.paymentStatus,
+    dueDate: c.dueDate,
+    lastActivityAt: c.lastActivityAt,
+    createdAt: c.createdAt,
+    updatedAt: c.updatedAt,
+  };
+}
+
+// POST /api/user/cases — app user submits a new service request
+export const createMyCase = asyncHandler(async (req, res) => {
+  const { serviceId, serviceType, submittedData, location } = req.body;
+
+  const cas = await Case.create({
+    userId: req.userId,
+    serviceId: serviceId && mongoose.Types.ObjectId.isValid(serviceId) ? serviceId : undefined,
+    serviceType: serviceType || undefined,
+    submittedData: submittedData || {},
+    location: location || {},
+    status: 'submitted',
+  });
+
+  // Confirm receipt to the user via in-app notification (fire-and-forget)
+  createNotification({
+    recipientType: 'user',
+    userId: req.userId,
+    title: 'Request Received',
+    body: `Your service request has been submitted. Case ID: ${cas.caseId}`,
+    type: 'case_created',
+    relatedId: cas._id,
+    relatedType: 'case',
+  });
+
+  res.status(201).json(publicCaseForUser(cas));
+});
+
+// GET /api/user/cases — app user's own cases
+export const listMyCases = asyncHandler(async (req, res) => {
+  const { status } = req.query;
+  const filter = { userId: req.userId };
+  if (status) {
+    if (!CASE_STATUSES.includes(status)) throw ApiError.badRequest('Invalid status');
+    filter.status = status;
+  }
+
+  const { page, limit, skip } = parsePagination(req.query);
+  const [items, total] = await Promise.all([
+    Case.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate('serviceId', 'name category icon')
+      .populate('assignedTeam', 'name role'),
+    Case.countDocuments(filter),
+  ]);
+
+  res.json({ items: items.map(publicCaseForUser), meta: buildPageMeta({ page, limit, total }) });
+});
+
+// GET /api/user/cases/:id — app user's own case detail
+export const getMyCase = asyncHandler(async (req, res) => {
+  assertValidId(req.params.id);
+  const cas = await Case.findOne({ _id: req.params.id, userId: req.userId }).populate([
+    { path: 'serviceId', select: 'name category icon' },
+    { path: 'assignedTeam', select: 'name role email' },
+    { path: 'reports', select: 'approvalStatus visitDate riskRating' },
+  ]);
+  if (!cas) throw ApiError.notFound('Case not found');
+
+  res.json(publicCaseForUser(cas));
+});

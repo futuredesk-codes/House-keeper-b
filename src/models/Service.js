@@ -33,12 +33,43 @@ const milestoneTemplateSchema = new mongoose.Schema(
   { _id: false },
 );
 
+const featureSchema = new mongoose.Schema(
+  { label: { type: String, required: true }, icon: { type: String } },
+  { _id: false },
+);
+
+const whatWeHelpSchema = new mongoose.Schema(
+  { title: { type: String, required: true }, description: String, icon: String },
+  { _id: false },
+);
+
+const stepSchema = new mongoose.Schema(
+  { title: { type: String, required: true }, description: String },
+  { _id: false },
+);
+
+const faqSchema = new mongoose.Schema(
+  { question: { type: String, required: true }, answer: String },
+  { _id: false },
+);
+
 const serviceSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
     category: { type: String, trim: true }, // NRK / KP / Other
     userType: { type: String }, // intended audience
     description: { type: String },
+
+    // UI content fields (service detail screen)
+    heroImage: { type: String }, // URL or file path for hero banner
+    icon: { type: String },     // icon identifier for service list card
+    bgColor: { type: String },  // icon background color
+    ctaLabel: { type: String, default: 'Start Request' }, // bottom button text
+    features: { type: [featureSchema], default: [] },     // top chip row
+    whatWeHelp: { type: [whatWeHelpSchema], default: [] }, // "What We Help With"
+    steps: { type: [stepSchema], default: [] },            // "Our 5 Steps Process"
+    faqs: { type: [faqSchema], default: [] },              // "Additional Details" accordion
+
     formSchema: { type: [formFieldSchema], default: [] },
     milestoneTemplate: { type: [milestoneTemplateSchema], default: [] },
     documentRequirements: { type: [String], default: [] },

@@ -70,6 +70,53 @@ export const readAll = asyncHandler(async (req, res) => {
   res.json({ ok: true });
 });
 
+// GET /api/user/notifications — app user's own notifications
+export const listMyNotifications = asyncHandler(async (req, res) => {
+  const filter = { userId: req.userId, recipientType: 'user' };
+  if (req.query.unread === 'true') filter.readAt = null;
+
+  const { page, limit, skip } = parsePagination(req.query);
+  const [items, total] = await Promise.all([
+    Notification.find(filter).sort({ sentAt: -1 }).skip(skip).limit(limit),
+    Notification.countDocuments(filter),
+  ]);
+
+  res.json({ items: items.map(publicNotification), meta: buildPageMeta({ page, limit, total }) });
+});
+
+// GET /api/user/notifications/unread-count
+export const myUnreadCount = asyncHandler(async (req, res) => {
+  const count = await Notification.countDocuments({
+    userId: req.userId,
+    recipientType: 'user',
+    readAt: null,
+  });
+  res.json({ count });
+});
+
+// PATCH /api/user/notifications/:id/read
+export const markMyNotificationRead = asyncHandler(async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) throw ApiError.badRequest('Invalid id');
+
+  const notification = await Notification.findOneAndUpdate(
+    { _id: req.params.id, userId: req.userId, recipientType: 'user' },
+    { readAt: new Date() },
+    { new: true },
+  );
+  if (!notification) throw ApiError.notFound('Notification not found');
+
+  res.json(publicNotification(notification));
+});
+
+// POST /api/user/notifications/read-all
+export const readAllMyNotifications = asyncHandler(async (req, res) => {
+  await Notification.updateMany(
+    { userId: req.userId, recipientType: 'user', readAt: null },
+    { readAt: new Date() },
+  );
+  res.json({ ok: true });
+});
+
 // POST /api/notifications/broadcast
 export const broadcast = asyncHandler(async (req, res) => {
   const { title, body, channel, userId, type } = req.body;
