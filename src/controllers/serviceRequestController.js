@@ -1,7 +1,34 @@
+import multer from 'multer';
+import { cloudinary } from '../config/cloudinary.js';
 import Case from '../models/Case.js';
+import Document from '../models/Document.js';
 import ApiError from '../utils/ApiError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { createNotification } from '../services/notificationService.js';
+
+// ─── multer — memory storage, 10 MB, accept any file type ───────────────────
+export const uploadServiceDocument = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+});
+
+// Upload a buffer to Cloudinary as a public file (images, PDFs, docs).
+async function uploadToCloudinary(buffer, userId) {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder: 'houseker/service-documents',
+        resource_type: 'auto',
+        public_id: `doc_${userId}_${Date.now()}`,
+      },
+      (error, result) => {
+        if (error) return reject(error);
+        resolve({ url: result.secure_url, publicId: result.public_id });
+      },
+    );
+    stream.end(buffer);
+  });
+}
 
 // Shared helper — creates a Case and fires a confirmation notification.
 // Each service handler validates its own required fields, then calls this.
@@ -34,6 +61,40 @@ async function submitRequest(req, res, serviceType, displayName, submittedData, 
     message: `Your ${displayName} request has been submitted successfully.`,
   });
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/user/service-requests/upload-document
+// Body: multipart/form-data with field 'file'
+// Uploads to Cloudinary (public), saves metadata in Document collection,
+// and returns the public URL so the client can include it in the
+// next submission payload as `documentUrl`.
+// ─────────────────────────────────────────────────────────────────────────────
+export const uploadDocument = asyncHandler(async (req, res) => {
+  if (!req.file) throw ApiError.badRequest('File is required');
+
+  const result = await uploadToCloudinary(req.file.buffer, req.userId);
+
+  // Save document metadata in MongoDB (Document collection)
+  const doc = await Document.create({
+    ownerUserId: req.userId,
+    originalName: req.file.originalname,
+    mimeType: req.file.mimetype,
+    size: req.file.size,
+    storageKey: result.url,
+    uploadedBy: { id: req.userId, role: 'user' },
+    visibility: 'user_visible',
+    category: 'other',
+    status: 'pending_review',
+  });
+
+  res.status(201).json({
+    id: doc._id,
+    url: result.url,
+    originalName: req.file.originalname,
+    mimeType: req.file.mimetype,
+    size: req.file.size,
+  });
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. POST /api/user/service-requests/selling-property
@@ -210,4 +271,37 @@ export const submitKpSaleSupport = asyncHandler(async (req, res) => {
     supportRequired: Array.isArray(supportRequired) ? supportRequired : [],
     notes,
   }, propertyLocation);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 9. POST /api/user/service-requests/joint-development
+// Fields: landLocation*, district, tehsil, landType,
+//         landArea, landAreaUnit, frontage, frontageUnit (section 1 — Basic Information)
+//         natureOfLand, currentUse, landStatus, zoningCategory (section 2 — Land Details)
+//         isFreeFromDisputes, landAvailability (section 3 — Availability)
+//         additionalInfo (section 4)
+// ─────────────────────────────────────────────────────────────────────────────
+export const submitJointDevelopment = asyncHandler(async (req, res) => {
+  const {
+    // Section 1 — Basic Information
+    landLocation, district, tehsil, landType,
+    landArea, landAreaUnit, frontage, frontageUnit,
+    // Section 2 — Land Details
+    natureOfLand, currentUse, landStatus, zoningCategory,
+    // Section 3 — Availability
+    isFreeFromDisputes, landAvailability,
+    // Section 4 — Additional
+    additionalInfo,
+  } = req.body;
+
+  if (!landLocation?.trim()) throw ApiError.badRequest('Land location is required');
+
+  await submitRequest(req, res, 'joint_development', 'Joint Development', {
+    landLocation, district, tehsil, landType,
+    landArea, landAreaUnit: landAreaUnit || 'Kanal',
+    frontage, frontageUnit: frontageUnit || 'Ft',
+    natureOfLand, currentUse, landStatus, zoningCategory,
+    isFreeFromDisputes, landAvailability,
+    additionalInfo,
+  }, landLocation);
 });
