@@ -19,6 +19,7 @@ import userCaseRoutes from './userCaseRoutes.js';
 import userNotificationRoutes from './userNotificationRoutes.js';
 import userProfileRoutes from './userProfileRoutes.js';
 import userProjectRoutes from './userProjectRoutes.js';
+import userSavedProjectRoutes from './userSavedProjectRoutes.js';
 import userServiceRequestRoutes from './userServiceRequestRoutes.js';
 import { authenticate } from '../middleware/auth.js';
 
@@ -46,6 +47,7 @@ router.use('/user/cases', userCaseRoutes);
 router.use('/user/notifications', userNotificationRoutes);
 router.use('/user/profile', userProfileRoutes);
 router.use('/user/projects', userProjectRoutes);
+router.use('/user/saved-projects', userSavedProjectRoutes);
 router.use('/user/service-requests', userServiceRequestRoutes);
 
 router.get('/session', authenticate, (req, res) => res.json({ actor: req.actor }));
