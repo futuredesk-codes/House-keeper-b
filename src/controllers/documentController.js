@@ -59,7 +59,7 @@ export const listDocuments = asyncHandler(async (req, res) => {
 
   const { page, limit, skip } = parsePagination(req.query);
   const [items, total] = await Promise.all([
-    Document.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    Document.find(filter).populate('ownerUserId', 'name phone email').sort({ createdAt: -1 }).skip(skip).limit(limit),
     Document.countDocuments(filter),
   ]);
 

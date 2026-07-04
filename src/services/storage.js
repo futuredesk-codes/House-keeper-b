@@ -54,6 +54,10 @@ function sign(storageKey, expires) {
  * @returns {string} relative URL the client can request from the API
  */
 export function getSignedUrl(storageKey, { ttl = env.storage.signedUrlTtl } = {}) {
+  // Some documents (e.g. Cloudinary-hosted service-request uploads) already store a
+  // full public URL as their "storageKey" — those need no local signing wrapper.
+  if (/^https?:\/\//i.test(storageKey)) return storageKey;
+
   const expires = Math.floor(Date.now() / 1000) + ttl;
   const sig = sign(storageKey, expires);
   const key = encodeURIComponent(storageKey);
