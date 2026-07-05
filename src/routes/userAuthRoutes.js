@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import {
-  sendOtp, verifyOtp, register,
+  sendOtp, verifyOtp, register, socialLogin,
   updateProfileImage, uploadAvatar, refreshUserTokens,
 } from '../controllers/userAuthController.js';
 import { authenticateUser } from '../middleware/userAuth.js';
@@ -20,6 +20,9 @@ router.post('/register', uploadAvatar.single('image'), register);
 
 // Refresh — exchange a valid refresh token for a new token pair
 router.post('/refresh', refreshUserTokens);
+
+// Social login (Google Sign-In) — verifies a Firebase ID token, logs in or auto-creates the user
+router.post('/social-login', socialLogin);
 
 // ── Authenticated user routes ────────────────────────────────────────────────
 

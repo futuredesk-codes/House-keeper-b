@@ -269,6 +269,43 @@ export const refreshUserTokens = asyncHandler(async (req, res) => {
   res.json(tokens);
 });
 
+// POST /api/user-auth/social-login
+// body: { idToken } — Firebase ID token obtained client-side after Google Sign-In
+// New user  → auto-created from the Google profile claims, then logged in
+// Existing  → looked up by firebaseUid, logged in
+export const socialLogin = asyncHandler(async (req, res) => {
+  const { idToken } = req.body;
+  if (!idToken) throw ApiError.badRequest('idToken is required');
+
+  const decoded = await firebaseVerifyIdToken(idToken);
+  if (!decoded) throw ApiError.unauthorized('Invalid Firebase ID token');
+
+  let user = await User.findOne({ firebaseUid: decoded.uid });
+  let isNewUser = false;
+
+  if (!user) {
+    isNewUser = true;
+    user = await User.create({
+      firebaseUid: decoded.uid,
+      name: decoded.name || decoded.email?.split('@')[0] || 'Google User',
+      email: decoded.email?.toLowerCase(),
+      profileImage: decoded.picture,
+      userType: 'guest',
+      language: 'en',
+      lastLoginAt: new Date(),
+    });
+  } else {
+    if (user.status === 'blocked') {
+      throw ApiError.forbidden('Account is blocked. Contact support to reactivate.');
+    }
+    user.lastLoginAt = new Date();
+    await user.save();
+  }
+
+  const tokens = issueUserTokens(user);
+  res.json({ isNewUser, ...tokens, user: publicUser(user) });
+});
+
 // PATCH /api/user-auth/profile-image
 // Lets an already-registered user update their profile image.
 // multipart/form-data: image (file, required) + Authorization: Bearer <userAccessToken>
