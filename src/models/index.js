@@ -14,3 +14,4 @@ export { default as Message } from './Message.js';
 export { default as Payment } from './Payment.js';
 export { default as Notification } from './Notification.js';
 export { default as ActivityLog } from './ActivityLog.js';
+export { default as HomeContent } from './HomeContent.js';
