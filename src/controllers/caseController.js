@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import Case from '../models/Case.js';
+import Service from '../models/Service.js';
 import TeamMember from '../models/TeamMember.js';
 import ApiError from '../utils/ApiError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
@@ -338,13 +339,27 @@ function publicCaseForUser(c) {
 export const createMyCase = asyncHandler(async (req, res) => {
   const { serviceId, serviceType, submittedData, location } = req.body;
 
+  const validServiceId = serviceId && mongoose.Types.ObjectId.isValid(serviceId) ? serviceId : undefined;
+  const service = validServiceId ? await Service.findById(validServiceId) : null;
+
+  const now = Date.now();
+  const milestones = (service?.milestoneTemplate || [])
+    .slice()
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    .map((m) => ({
+      label: m.label,
+      order: m.order ?? 0,
+      expectedDate: m.expectedDays != null ? new Date(now + m.expectedDays * 24 * 60 * 60 * 1000) : undefined,
+    }));
+
   const cas = await Case.create({
     userId: req.userId,
-    serviceId: serviceId && mongoose.Types.ObjectId.isValid(serviceId) ? serviceId : undefined,
-    serviceType: serviceType || undefined,
+    serviceId: validServiceId,
+    serviceType: serviceType || service?.name || undefined,
     submittedData: submittedData || {},
     location: location || {},
     status: 'submitted',
+    milestones,
   });
 
   // Confirm receipt to the user via in-app notification (fire-and-forget)

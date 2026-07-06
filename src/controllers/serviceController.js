@@ -2,6 +2,7 @@ import Service from '../models/Service.js';
 import ApiError from '../utils/ApiError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { parsePagination, buildPageMeta } from '../utils/paginate.js';
+import { cloudinary } from '../config/cloudinary.js';
 
 function publicService(s) {
   return {
@@ -129,6 +130,43 @@ export const toggleService = asyncHandler(async (req, res) => {
   if (!service) throw ApiError.notFound('Service not found');
 
   service.active = !service.active;
+  await service.save();
+  res.json(publicService(service));
+});
+
+// Upload an image buffer to Cloudinary. Dynamic public_id per service+field so
+// re-uploads replace the previous banner/icon instead of piling up.
+async function uploadImageToCloudinary(buffer, publicId) {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder: 'houseker/services',
+        public_id: publicId,
+        overwrite: true,
+        resource_type: 'image',
+      },
+      (error, result) => {
+        if (error) return reject(error);
+        resolve(result);
+      },
+    );
+    stream.end(buffer);
+  });
+}
+
+// POST /api/services/:id/upload — multipart field 'file', body field 'target' = 'hero' | 'icon'
+export const uploadServiceImage = asyncHandler(async (req, res) => {
+  const service = await Service.findById(req.params.id);
+  if (!service) throw ApiError.notFound('Service not found');
+
+  if (!req.file) throw ApiError.badRequest('Image file is required');
+
+  const target = req.body.target === 'icon' ? 'icon' : 'hero';
+  const result = await uploadImageToCloudinary(req.file.buffer, `${target}_${service._id}`);
+
+  if (target === 'icon') service.icon = result.secure_url;
+  else service.heroImage = result.secure_url;
+
   await service.save();
   res.json(publicService(service));
 });

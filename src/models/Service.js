@@ -9,12 +9,12 @@ const formFieldSchema = new mongoose.Schema(
     label: { type: String, required: true },
     type: {
       type: String,
-      enum: ['text', 'long_text', 'number', 'date', 'dropdown', 'multiselect',
+      enum: ['text', 'long_text', 'number', 'date', 'dropdown', 'radio', 'multiselect',
         'file', 'image', 'video', 'checkbox', 'area_kanals', 'location'],
       required: true,
     },
     required: { type: Boolean, default: false },
-    options: [String], // for dropdown/multiselect
+    options: [String], // for dropdown/radio/multiselect
     // Conditional logic: show this field only when another field has a value
     showWhen: {
       field: String,

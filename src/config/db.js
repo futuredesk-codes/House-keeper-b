@@ -7,8 +7,9 @@ export async function connectDB() {
   await mongoose.connect(env.mongoUri, {
     serverSelectionTimeoutMS: 8000,
   });
+  const redacted = env.mongoUri.replace(/\/\/([^:]+):[^@]+@/, '//$1:****@');
   // eslint-disable-next-line no-console
-  console.log(`[db] Connected to MongoDB: ${env.mongoUri}`);
+  console.log(`[db] Connected to MongoDB: ${redacted}`);
   return mongoose.connection;
 }
 

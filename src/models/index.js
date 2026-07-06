@@ -3,6 +3,7 @@ export { default as Counter } from './Counter.js';
 export { default as User } from './User.js';
 export { default as TeamMember } from './TeamMember.js';
 export { default as Service } from './Service.js';
+export { default as Category } from './Category.js';
 export { default as Property } from './Property.js';
 export { default as Document } from './Document.js';
 export { default as Enquiry } from './Enquiry.js';
