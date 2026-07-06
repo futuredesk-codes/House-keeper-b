@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import { env } from './config/env.js';
+import { corsOrigin } from './config/cors.js';
 import apiRoutes from './routes/index.js';
 import { notFoundHandler, errorHandler } from './middleware/error.js';
 import './models/index.js'; // ensure all schemas are registered
@@ -11,7 +12,7 @@ export function createApp() {
   const app = express();
 
   app.use(helmet({ crossOriginResourcePolicy: false }));
-  app.use(cors({ origin: env.adminOrigin, credentials: true }));
+  app.use(cors({ origin: corsOrigin, credentials: true }));
   app.use(express.json({ limit: '2mb' }));
   app.use(express.urlencoded({ extended: true }));
   if (env.nodeEnv !== 'test') app.use(morgan('dev'));

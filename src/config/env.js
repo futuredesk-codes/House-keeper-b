@@ -29,7 +29,10 @@ export const env = {
     signedUrlTtl: parseInt(process.env.SIGNED_URL_TTL_SECONDS || '300', 10),
   },
 
-  adminOrigin: process.env.ADMIN_ORIGIN || 'http://localhost:5173',
+  adminOrigins: (process.env.ADMIN_ORIGIN || 'http://localhost:5173')
+    .split(',')
+    .map((origin) => origin.trim().replace(/\/+$/, ''))
+    .filter(Boolean),
 
   cloudinary: {
     cloudName: process.env.CLOUDINARY_CLOUD_NAME || '',

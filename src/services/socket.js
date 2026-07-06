@@ -2,12 +2,13 @@ import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import TeamMember from '../models/TeamMember.js';
 import { env } from '../config/env.js';
+import { corsOrigin } from '../config/cors.js';
 
 let io;
 
 export function initSocket(httpServer) {
   io = new Server(httpServer, {
-    cors: { origin: env.adminOrigin, credentials: true },
+    cors: { origin: corsOrigin, credentials: true },
   });
 
   io.use(async (socket, next) => {
