@@ -7,6 +7,7 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 import { parsePagination, buildPageMeta } from '../utils/paginate.js';
 import { hasPermission, PERMISSIONS } from '../constants/roles.js';
 import { PROJECT_STATUSES } from '../constants/statuses.js';
+import { cloudinary } from '../config/cloudinary.js';
 
 function publicProject(p) {
   return {
@@ -25,6 +26,7 @@ function publicProject(p) {
     availableOptions: p.availableOptions,
     possessionYear: p.possessionYear,
     plotDetails: p.plotDetails,
+    paymentPlan: p.paymentPlan,
     brochure: p.brochure,
     featured: p.featured,
     active: p.active,
@@ -70,7 +72,7 @@ export const getProject = asyncHandler(async (req, res) => {
 export const createProject = asyncHandler(async (req, res) => {
   const {
     name, type, location, status, startingPrice, heroImage, images, floorPlans, amenities, description,
-    highlights, availableOptions, possessionYear, plotDetails, brochure,
+    highlights, availableOptions, possessionYear, plotDetails, paymentPlan, brochure,
   } = req.body;
   if (!name || !name.trim()) throw ApiError.badRequest('Project name is required');
   if (status && !PROJECT_STATUSES.includes(status)) throw ApiError.badRequest('Invalid status');
@@ -90,6 +92,7 @@ export const createProject = asyncHandler(async (req, res) => {
     availableOptions: availableOptions || [],
     possessionYear,
     plotDetails,
+    paymentPlan: paymentPlan || [],
     brochure: brochure || undefined,
   });
 
@@ -104,7 +107,7 @@ export const updateProject = asyncHandler(async (req, res) => {
 
   const {
     name, type, location, status, startingPrice, heroImage, images, floorPlans, amenities, description,
-    highlights, availableOptions, possessionYear, plotDetails, brochure, internalNotes,
+    highlights, availableOptions, possessionYear, plotDetails, paymentPlan, brochure, internalNotes,
   } = req.body;
 
   if (name !== undefined) project.name = name.trim();
@@ -124,6 +127,7 @@ export const updateProject = asyncHandler(async (req, res) => {
   if (availableOptions !== undefined) project.availableOptions = availableOptions;
   if (possessionYear !== undefined) project.possessionYear = possessionYear;
   if (plotDetails !== undefined) project.plotDetails = plotDetails;
+  if (paymentPlan !== undefined) project.paymentPlan = paymentPlan;
   if (brochure !== undefined) project.brochure = brochure || undefined;
   if (internalNotes !== undefined) project.internalNotes = internalNotes;
 
@@ -149,6 +153,41 @@ export const toggleFeatured = asyncHandler(async (req, res) => {
   if (!project) throw ApiError.notFound('Project not found');
 
   project.featured = !project.featured;
+  await project.save();
+  res.json(publicProject(project));
+});
+
+// Upload an image buffer to Cloudinary. Fixed public_id per project so
+// re-uploads replace the previous banner instead of piling up.
+async function uploadImageToCloudinary(buffer, publicId) {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder: 'houseker/projects',
+        public_id: publicId,
+        overwrite: true,
+        resource_type: 'image',
+      },
+      (error, result) => {
+        if (error) return reject(error);
+        resolve(result);
+      },
+    );
+    stream.end(buffer);
+  });
+}
+
+// POST /api/projects/:id/upload — multipart field 'file', sets the project's hero/banner image
+export const uploadProjectImage = asyncHandler(async (req, res) => {
+  assertValidId(req.params.id);
+  const project = await Project.findById(req.params.id);
+  if (!project) throw ApiError.notFound('Project not found');
+
+  if (!req.file) throw ApiError.badRequest('Image file is required');
+
+  const result = await uploadImageToCloudinary(req.file.buffer, `hero_${project._id}`);
+  project.heroImage = result.secure_url;
+
   await project.save();
   res.json(publicProject(project));
 });
