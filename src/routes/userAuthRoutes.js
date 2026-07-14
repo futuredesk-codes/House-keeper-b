@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import {
-  sendOtp, verifyOtp, register, socialLogin,
+  verifyPhone, register, socialLogin,
   updateProfileImage, uploadAvatar, refreshUserTokens,
 } from '../controllers/userAuthController.js';
 import { authenticateUser } from '../middleware/userAuth.js';
@@ -8,12 +8,11 @@ import { authenticateUser } from '../middleware/userAuth.js';
 const router = Router();
 
 // ── Phone OTP flow (no auth needed) ─────────────────────────────────────────
+// OTP is sent/verified on-device via the Firebase SDK (handles reCAPTCHA/Play
+// Integrity itself). The app only calls the backend once it holds a Firebase ID token.
 
-// Step 1 — send OTP SMS to the phone number
-router.post('/send-otp', sendOtp);
-
-// Step 2 — verify OTP → new user OR existing user login (merged, single call)
-router.post('/verify-otp', verifyOtp);
+// Verify the Firebase ID token → new user OR existing user login (merged, single call)
+router.post('/verify-phone', verifyPhone);
 
 // Step 3 — new user only: submit name + email + optional image
 router.post('/register', uploadAvatar.single('image'), register);

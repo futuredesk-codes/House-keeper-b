@@ -5,7 +5,6 @@ import User from '../models/User.js';
 import ApiError from '../utils/ApiError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../utils/jwt.js';
-import { env } from '../config/env.js';
 
 // ─── multer — memory storage, image files only, 5 MB cap ────────────────────
 export const uploadAvatar = multer({
@@ -18,11 +17,6 @@ export const uploadAvatar = multer({
 });
 
 // ─── helpers ────────────────────────────────────────────────────────────────
-
-function isValidE164(phone) {
-  if (typeof phone !== 'string') return false;
-  return /^\+[1-9]\d{7,14}$/.test(phone.trim());
-}
 
 function publicUser(u) {
   return {
@@ -71,54 +65,6 @@ async function uploadImageToCloudinary(buffer, userId) {
   });
 }
 
-// Call Firebase Identity Toolkit REST to send an OTP SMS.
-async function firebaseSendOtp(phone, captchaToken) {
-  const apiKey = env.firebase.clientApiKey;
-  if (!apiKey) throw new Error('FIREBASE_CLIENT_API_KEY not configured');
-
-  const res = await fetch(
-    `https://www.googleapis.com/identitytoolkit/v3/relyingparty/sendVerificationCode?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        phoneNumber: phone,
-        recaptchaToken: captchaToken || 'skip-recaptcha-in-dev',
-      }),
-    },
-  );
-
-  const data = await res.json();
-  if (!res.ok) throw new Error(data?.error?.message || 'Failed to send OTP');
-
-  return { sessionInfo: data.sessionInfo, expiresIn: data.expiresIn || 300 };
-}
-
-// Call Firebase Identity Toolkit REST to verify the OTP and return a Firebase ID token.
-async function firebaseVerifyOtp(sessionInfo, otp) {
-  const apiKey = env.firebase.clientApiKey;
-  if (!apiKey) throw new Error('FIREBASE_CLIENT_API_KEY not configured');
-
-  const res = await fetch(
-    `https://www.googleapis.com/identitytoolkit/v3/relyingparty/verifyPhoneNumber?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessionInfo, code: otp }),
-    },
-  );
-
-  const data = await res.json();
-  if (!res.ok) throw new Error(data?.error?.message || 'Invalid OTP');
-
-  return {
-    idToken: data.idToken,
-    refreshToken: data.refreshToken,
-    localId: data.localId,
-    phoneNumber: data.phoneNumber,
-  };
-}
-
 // Verify a Firebase ID token server-side.
 async function firebaseVerifyIdToken(idToken) {
   try {
@@ -131,45 +77,21 @@ async function firebaseVerifyIdToken(idToken) {
 
 // ─── controllers ────────────────────────────────────────────────────────────
 
-// Step 1 — POST /api/user-auth/send-otp
-// body: { phone: '+919876543210', captchaToken?: '...' }
-export const sendOtp = asyncHandler(async (req, res) => {
-  const { phone, captchaToken } = req.body;
-
-  if (!isValidE164(phone)) {
-    throw ApiError.badRequest('Invalid phone number. Use E.164 format, e.g. +919876543210');
-  }
-
-  try {
-    const result = await firebaseSendOtp(phone.trim(), captchaToken);
-    res.json(result); // { sessionInfo, expiresIn }
-  } catch (err) {
-    throw ApiError.badRequest(err.message);
-  }
-});
-
-// Step 2 — POST /api/user-auth/verify-otp
-// body: { sessionInfo: '...', otp: '123456' }
-// Verifies OTP with Firebase, then immediately checks if the user exists in MongoDB.
+// POST /api/user-auth/verify-phone
+// body: { firebaseIdToken }
+// The Flutter app verifies the phone number itself via the native firebase_auth SDK
+// (FirebaseAuth.verifyPhoneNumber + signInWithCredential) — that's what handles the
+// reCAPTCHA/Play Integrity challenge on-device. We just verify the resulting ID token
+// and check whether the user already exists in MongoDB.
 // New user  → { isNewUser: true,  firebaseUid, phoneNumber, firebaseIdToken }
 // Existing  → { isNewUser: false, accessToken, refreshToken, user }
-export const verifyOtp = asyncHandler(async (req, res) => {
-  const { sessionInfo, otp } = req.body;
-  if (!sessionInfo || !otp) throw ApiError.badRequest('sessionInfo and otp are required');
+export const verifyPhone = asyncHandler(async (req, res) => {
+  const { firebaseIdToken } = req.body;
+  if (!firebaseIdToken) throw ApiError.badRequest('firebaseIdToken is required');
 
-  // 1. Verify OTP with Firebase → get Firebase ID token
-  let firebaseResult;
-  try {
-    firebaseResult = await firebaseVerifyOtp(sessionInfo, otp);
-  } catch (err) {
-    throw ApiError.badRequest(err.message);
-  }
-
-  // 2. Verify the ID token with Firebase Admin SDK → get uid + phone
-  const decoded = await firebaseVerifyIdToken(firebaseResult.idToken);
+  const decoded = await firebaseVerifyIdToken(firebaseIdToken);
   if (!decoded) throw ApiError.unauthorized('Firebase token verification failed');
 
-  // 3. Look up user in MongoDB
   const user = await User.findOne({ firebaseUid: decoded.uid });
 
   if (!user) {
@@ -178,7 +100,7 @@ export const verifyOtp = asyncHandler(async (req, res) => {
       isNewUser: true,
       firebaseUid: decoded.uid,
       phoneNumber: decoded.phone_number,
-      firebaseIdToken: firebaseResult.idToken, // needed for /register
+      firebaseIdToken, // needed for /register
     });
   }
 
